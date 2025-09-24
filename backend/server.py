@@ -68,6 +68,38 @@ class Message(BaseModel):
     type: str = "highlight"  # highlight, decision, action_item
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+class RecordingSession(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    mode: str = "local"  # local, cloud, local_to_cloud
+    device_id: str
+    user_id: Optional[str] = None
+    meeting_id: Optional[str] = None
+    status: str = "active"  # active, paused, stopped, failed, pending_sync
+    allow_fallback: bool = True
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    ended_at: Optional[datetime] = None
+    audio_files: List[str] = []
+    markers: List[dict] = []
+    metadata: dict = {}
+    last_heartbeat: datetime = Field(default_factory=datetime.utcnow)
+
+class RecordingStart(BaseModel):
+    mode: str = "local"
+    allow_fallback: bool = True
+    metadata: Optional[dict] = {}
+    meeting_id: Optional[str] = None
+
+class RecordingHeartbeat(BaseModel):
+    session_id: str
+    device_id: str
+    ts: str
+
+class RecordingStop(BaseModel):
+    session_id: str
+    final: bool = True
+    stats: Optional[dict] = {}
+
 class UserSettings(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     openai_api_key: Optional[str] = None
