@@ -665,7 +665,7 @@ class BotMRTester:
         print("=" * 60)
         
         # Core API tests
-        tests = [
+        core_tests = [
             self.test_api_health,
             self.test_get_meetings_empty,
             self.test_create_meeting_basic,
@@ -676,13 +676,57 @@ class BotMRTester:
             self.test_get_messages,
             self.test_get_settings,
             self.test_update_settings,
+        ]
+        
+        # Recording session tests (API-001, API-002, QUE-001)
+        recording_tests = [
+            self.test_recording_start,
+            self.test_recording_heartbeat,
+            self.test_recording_status,
+            self.test_recording_stop,
+            self.test_complete_recording_workflow,
+            self.test_concurrent_recording_sessions,
+        ]
+        
+        # Error handling tests
+        error_tests = [
             self.test_error_scenarios
         ]
+        
+        all_tests = core_tests + recording_tests + error_tests
         
         passed = 0
         failed = 0
         
-        for test in tests:
+        print("\n📋 CORE API TESTS")
+        print("-" * 40)
+        for test in core_tests:
+            try:
+                if test():
+                    passed += 1
+                else:
+                    failed += 1
+            except Exception as e:
+                print(f"❌ FAIL: {test.__name__} - Unexpected error: {str(e)}")
+                failed += 1
+            print()  # Add spacing between tests
+        
+        print("\n🎙️ RECORDING SESSION TESTS (API-001, API-002, QUE-001)")
+        print("-" * 40)
+        for test in recording_tests:
+            try:
+                if test():
+                    passed += 1
+                else:
+                    failed += 1
+            except Exception as e:
+                print(f"❌ FAIL: {test.__name__} - Unexpected error: {str(e)}")
+                failed += 1
+            print()  # Add spacing between tests
+        
+        print("\n🚨 ERROR HANDLING TESTS")
+        print("-" * 40)
+        for test in error_tests:
             try:
                 if test():
                     passed += 1
@@ -704,6 +748,12 @@ class BotMRTester:
             print("🎉 All tests passed! Backend API is working correctly.")
         else:
             print("⚠️  Some tests failed. Check the details above.")
+            
+            # Show failed tests summary
+            print("\n❌ FAILED TESTS:")
+            for result in self.test_results:
+                if not result['success']:
+                    print(f"  • {result['test']}: {result['message']}")
         
         return failed == 0
 
