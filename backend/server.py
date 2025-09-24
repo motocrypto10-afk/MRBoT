@@ -294,8 +294,15 @@ async def process_meeting_async(meeting_id: str):
     # This would be called asynchronously in a real implementation
     pass
 
-@api_router.get("/tasks", response_model=List[Task])
-async def get_tasks():
+@api_router.post("/tasks")
+async def create_task(task: Task):
+    """Create a new task"""
+    try:
+        result = await db.tasks.insert_one(task.dict())
+        return task
+    except Exception as e:
+        logger.error(f"Error creating task: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create task")
     """Get all tasks"""
     try:
         tasks_cursor = db.tasks.find().sort("created_at", -1)
