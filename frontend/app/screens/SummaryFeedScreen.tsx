@@ -183,13 +183,6 @@ export default function SummaryFeedScreen() {
           </View>
         }
       />
-
-      {/* Floating Record Button - Central FAB */}
-      <TouchableOpacity style={styles.floatingButton} onPress={startRecording}>
-        <View style={styles.micButtonInner}>
-          <Ionicons name="mic" size={28} color="#FFFFFF" />
-        </View>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -210,7 +203,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
-    paddingBottom: 120, // Extra padding for FAB
+    paddingBottom: 20, // Normal padding since no floating button
   },
   meetingCard: {
     backgroundColor: '#FFFFFF',
@@ -320,34 +313,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
-  },
-  floatingButton: {
-    position: 'absolute',
-    bottom: 90, // Position above tab bar
-    alignSelf: 'center',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#007AFF',
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 12,
-  },
-  micButtonInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
   },
 });

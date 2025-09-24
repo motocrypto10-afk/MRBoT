@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, View, TouchableOpacity } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +14,21 @@ import SettingsScreen from './screens/SettingsScreen';
 import RecordingScreen from './screens/RecordingScreen';
 
 const Tab = createBottomTabNavigator();
+
+// Custom Record Button Component
+function CustomRecordButton({ onPress }: { onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      style={styles.recordButtonContainer}
+      onPress={onPress}
+      activeOpacity={0.8}
+    >
+      <View style={styles.recordButton}>
+        <Ionicons name="mic" size={24} color="#FFFFFF" />
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function Index() {
   return (
@@ -34,8 +49,6 @@ export default function Index() {
               iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
             } else if (route.name === 'Settings') {
               iconName = focused ? 'settings' : 'settings-outline';
-            } else if (route.name === 'Record') {
-              iconName = 'mic';
             } else {
               iconName = 'ellipse-outline';
             }
@@ -106,16 +119,20 @@ export default function Index() {
           }}
         />
         
-        {/* Central Record Button - Empty placeholder tab */}
+        {/* Central Record Button */}
         <Tab.Screen
           name="Record"
           component={RecordingScreen}
-          options={{
+          options={({ navigation }) => ({
             title: 'Record',
-            tabBarLabel: '',
-            tabBarIcon: () => null, // Hide default icon since we'll use custom FAB
-            tabBarButton: () => null, // This removes the tab button entirely
-          }}
+            tabBarLabel: 'Record',
+            tabBarIcon: () => null,
+            tabBarButton: (props) => (
+              <CustomRecordButton
+                onPress={() => navigation.navigate('Record')}
+              />
+            ),
+          })}
         />
         
         <Tab.Screen 
@@ -146,3 +163,30 @@ export default function Index() {
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  recordButtonContainer: {
+    top: -15, // Elevate above the tab bar
+    justifyContent: 'center',
+    alignItems: 'center',
+    flex: 1,
+  },
+  recordButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#007AFF',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+});
