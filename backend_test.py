@@ -22,6 +22,8 @@ class BotMRTester:
         self.session.timeout = TIMEOUT
         self.test_results = []
         self.created_meeting_id = None
+        self.recording_session_id = None
+        self.recording_meeting_id = None
         
     def log_test(self, test_name, success, message, details=None):
         """Log test results"""
