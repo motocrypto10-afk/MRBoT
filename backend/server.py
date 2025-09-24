@@ -303,6 +303,9 @@ async def create_task(task: Task):
     except Exception as e:
         logger.error(f"Error creating task: {e}")
         raise HTTPException(status_code=500, detail="Failed to create task")
+
+@api_router.get("/tasks", response_model=List[Task])
+async def get_tasks():
     """Get all tasks"""
     try:
         tasks_cursor = db.tasks.find().sort("created_at", -1)
