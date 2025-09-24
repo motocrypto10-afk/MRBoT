@@ -226,6 +226,8 @@ async def process_meeting(meeting_id: str):
         
         return {"message": "Meeting processed successfully"}
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error processing meeting: {e}")
         # Update status to error
