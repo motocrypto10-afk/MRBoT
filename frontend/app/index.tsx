@@ -1,30 +1,82 @@
-import { Text, View, StyleSheet, Image } from "react-native";
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import SummaryFeedScreen from './screens/SummaryFeedScreen';
+import TasksScreen from './screens/TasksScreen';
+import MomScreen from './screens/MomScreen';
+import MessagesScreen from './screens/MessagesScreen';
+import RecordingScreen from './screens/RecordingScreen';
+import SettingsScreen from './screens/SettingsScreen';
+
+const Tab = createBottomTabNavigator();
 
 export default function Index() {
-  console.log(EXPO_PUBLIC_BACKEND_URL, "EXPO_PUBLIC_BACKEND_URL");
-
   return (
-    <View style={styles.container}>
-      <Image
-        source={require("../assets/images/app-image.png")}
-        style={styles.image}
-      />
-    </View>
+    <SafeAreaProvider>
+      <NavigationContainer independent={true}>
+        <StatusBar style="auto" />
+        <Tab.Navigator
+          screenOptions={({ route }) => ({
+            tabBarIcon: ({ focused, color, size }) => {
+              let iconName: any;
+
+              if (route.name === 'Home') {
+                iconName = focused ? 'home' : 'home-outline';
+              } else if (route.name === 'Tasks') {
+                iconName = focused ? 'checkmark-circle' : 'checkmark-circle-outline';
+              } else if (route.name === 'MoM') {
+                iconName = focused ? 'document-text' : 'document-text-outline';
+              } else if (route.name === 'Messages') {
+                iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+              } else if (route.name === 'Settings') {
+                iconName = focused ? 'settings' : 'settings-outline';
+              }
+
+              return <Ionicons name={iconName} size={size} color={color} />;
+            },
+            tabBarActiveTintColor: '#007AFF',
+            tabBarInactiveTintColor: 'gray',
+            headerStyle: {
+              backgroundColor: '#ffffff',
+            },
+            headerTintColor: '#000',
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          })}
+        >
+          <Tab.Screen 
+            name="Home" 
+            component={SummaryFeedScreen} 
+            options={{ title: 'Meeting Summaries' }}
+          />
+          <Tab.Screen 
+            name="Tasks" 
+            component={TasksScreen} 
+            options={{ title: 'Tasks' }}
+          />
+          <Tab.Screen 
+            name="MoM" 
+            component={MomScreen} 
+            options={{ title: 'Minutes of Meeting' }}
+          />
+          <Tab.Screen 
+            name="Messages" 
+            component={MessagesScreen} 
+            options={{ title: 'Messages' }}
+          />
+          <Tab.Screen 
+            name="Settings" 
+            component={SettingsScreen} 
+            options={{ title: 'Settings' }}
+          />
+        </Tab.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0c0c0c",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
-  },
-});
