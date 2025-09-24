@@ -7,7 +7,8 @@ import {
   Alert,
   Animated,
   Platform,
-  Switch,
+  Vibration,
+  ToastAndroid,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,8 +21,8 @@ interface RecordingState {
   isPaused: boolean;
   recordingTime: number;
   mode: 'local' | 'cloud';
-  allowFallback: boolean;
   sessionId: string | null;
+  markers: Array<{ time: number; label: string }>;
 }
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -34,21 +35,24 @@ export default function RecordingScreen() {
     isPaused: false,
     recordingTime: 0,
     mode: 'local',
-    allowFallback: true,
     sessionId: null,
+    markers: [],
   });
 
   // Animations
   const [pulseAnim] = useState(new Animated.Value(1));
+  const [glowAnim] = useState(new Animated.Value(0));
   const [waveformAnims] = useState([
     new Animated.Value(0.3),
     new Animated.Value(0.5),
     new Animated.Value(0.8),
     new Animated.Value(0.4),
     new Animated.Value(0.6),
+    new Animated.Value(0.7),
+    new Animated.Value(0.3),
   ]);
 
-  // Timer
+  // Timer and heartbeat refs
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -66,32 +70,13 @@ export default function RecordingScreen() {
         setRecordingState(prev => ({ ...prev, recordingTime: prev.recordingTime + 1 }));
       }, 1000);
 
-      // Start pulse animation
-      const pulseAnimation = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.3,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      pulseAnimation.start();
-
-      // Start waveform animation
-      startWaveformAnimation();
-
-      // Start heartbeat
+      // Start animations
+      startRecordingAnimations();
       startHeartbeat();
 
       return () => {
         if (timerRef.current) clearInterval(timerRef.current);
-        pulseAnimation.stop();
+        if (heartbeatRef.current) clearInterval(heartbeatRef.current);
       };
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -99,26 +84,58 @@ export default function RecordingScreen() {
     }
   }, [recordingState.isRecording, recordingState.isPaused]);
 
-  const startWaveformAnimation = () => {
-    const animations = waveformAnims.map((anim, index) => 
-      Animated.loop(
+  const startRecordingAnimations = () => {
+    // Mic pulse animation
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.2,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulseAnimation.start();
+
+    // Glow animation
+    const glowAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(glowAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    glowAnimation.start();
+
+    // Waveform animations
+    waveformAnims.forEach((anim, index) => {
+      const waveAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(anim, {
             toValue: Math.random() * 0.8 + 0.2,
-            duration: 300 + Math.random() * 200,
+            duration: 200 + Math.random() * 300,
             useNativeDriver: true,
           }),
           Animated.timing(anim, {
             toValue: Math.random() * 0.8 + 0.2,
-            duration: 300 + Math.random() * 200,
+            duration: 200 + Math.random() * 300,
             useNativeDriver: true,
           }),
         ])
-      )
-    );
-    
-    animations.forEach((animation, index) => {
-      setTimeout(() => animation.start(), index * 100);
+      );
+      setTimeout(() => waveAnimation.start(), index * 50);
     });
   };
 
@@ -139,8 +156,21 @@ export default function RecordingScreen() {
       } catch (error) {
         console.error('Heartbeat failed:', error);
         // Could trigger cloud fallback here
+        if (recordingState.mode === 'local') {
+          showStatusToast('Switched to cloud for continuity');
+          setRecordingState(prev => ({ ...prev, mode: 'cloud' }));
+        }
       }
-    }, 10000); // Every 10 seconds
+    }, 10000);
+  };
+
+  const showStatusToast = (message: string) => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(message, ToastAndroid.SHORT);
+    } else {
+      // For iOS, you could use a custom toast component
+      Alert.alert('Status', message);
+    }
   };
 
   const requestPermissions = async (): Promise<boolean> => {
@@ -149,7 +179,7 @@ export default function RecordingScreen() {
       if (permission.status !== 'granted') {
         Alert.alert(
           'Permission Required',
-          'Microphone access is needed to record meetings. Please enable it in Settings.',
+          'Microphone access is needed to record meetings.',
           [{ text: 'OK' }]
         );
         return false;
@@ -166,6 +196,13 @@ export default function RecordingScreen() {
       const hasPermission = await requestPermissions();
       if (!hasPermission) return;
 
+      // Haptic feedback
+      if (Platform.OS === 'ios') {
+        // iOS haptic feedback would go here
+      } else {
+        Vibration.vibrate(50);
+      }
+
       // Configure audio session
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
@@ -180,7 +217,7 @@ export default function RecordingScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: recordingState.mode,
-          allowFallback: recordingState.allowFallback,
+          allowFallback: true,
           metadata: {
             deviceId: 'device_' + Date.now(),
             platform: Platform.OS,
@@ -207,11 +244,7 @@ export default function RecordingScreen() {
           sampleRate: 44100,
           numberOfChannels: 1,
           bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
         },
-        web: {},
       });
 
       setRecording(newRecording);
@@ -221,6 +254,7 @@ export default function RecordingScreen() {
         isPaused: false,
         recordingTime: 0,
         sessionId: sessionData.sessionId,
+        markers: [],
       }));
 
     } catch (error) {
@@ -233,86 +267,129 @@ export default function RecordingScreen() {
     if (!recording) return;
 
     try {
+      // Haptic feedback
+      Vibration.vibrate(30);
+
       if (recordingState.isPaused) {
         await recording.startAsync();
         setRecordingState(prev => ({ ...prev, isPaused: false }));
+        showStatusToast('Recording resumed');
       } else {
         await recording.pauseAsync();
         setRecordingState(prev => ({ ...prev, isPaused: true }));
+        showStatusToast('Recording paused');
       }
     } catch (error) {
       console.error('Failed to pause/resume recording:', error);
     }
   };
 
+  const addMarker = () => {
+    const marker = {
+      time: recordingState.recordingTime,
+      label: `Marker ${recordingState.markers.length + 1}`,
+    };
+
+    setRecordingState(prev => ({
+      ...prev,
+      markers: [...prev.markers, marker],
+    }));
+
+    // Haptic feedback
+    Vibration.vibrate(30);
+    showStatusToast(`Marker added at ${formatTime(recordingState.recordingTime)}`);
+  };
+
   const stopRecording = async () => {
-    if (!recording) return;
+    if (!recording || !recordingState.sessionId) return;
 
     try {
+      // Haptic feedback
+      Vibration.vibrate([50, 100, 50]);
+
+      // Mic shrink animation
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.8,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Stop recording
       setRecordingState(prev => ({ ...prev, isRecording: false, isPaused: false }));
-      
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
-      
-      if (uri && recordingState.sessionId) {
-        // Stop backend session
-        await fetch(`${BACKEND_URL}/api/recordings/stop`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId: recordingState.sessionId,
-            final: true,
-            stats: {
-              duration: recordingState.recordingTime,
-              fileUri: uri,
-            },
-          }),
-        });
 
-        // Store recording locally
-        await AsyncStorage.setItem(`recording_${recordingState.sessionId}`, JSON.stringify({
-          uri,
-          duration: recordingState.recordingTime,
-          timestamp: new Date().toISOString(),
-        }));
+      // Show processing toast
+      showStatusToast('Recording saved. Processing in background...');
 
-        // Navigate to review
-        Alert.alert(
-          'Recording Complete',
-          'Your recording has been saved and will be processed.',
-          [
-            {
-              text: 'Review',
-              onPress: () => navigation.goBack(),
-            }
-          ]
-        );
-      }
-      
+      // Queue the recording for processing
+      await queueRecordingForProcessing(recordingState.sessionId, uri);
+
+      // Auto-return to Summary page
+      setTimeout(() => {
+        navigation.navigate('Summary' as never);
+      }, 1000);
+
+      // Reset state
       setRecording(null);
       setRecordingState(prev => ({
         ...prev,
         recordingTime: 0,
         sessionId: null,
+        markers: [],
       }));
-      
+
     } catch (error) {
       console.error('Failed to stop recording:', error);
       Alert.alert('Error', 'Failed to stop recording');
     }
   };
 
-  const addMarker = () => {
-    Alert.prompt(
-      'Add Marker',
-      'Add a note at this moment:',
-      (text) => {
-        if (text) {
-          console.log(`Marker at ${formatTime(recordingState.recordingTime)}: ${text}`);
-          // TODO: Save marker to session
-        }
-      }
-    );
+  const queueRecordingForProcessing = async (sessionId: string, uri: string | null) => {
+    try {
+      // Stop backend session
+      await fetch(`${BACKEND_URL}/api/recordings/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          final: true,
+          stats: {
+            duration: recordingState.recordingTime,
+            fileUri: uri,
+            markers: recordingState.markers,
+          },
+        }),
+      });
+
+      // Store locally for queue processing
+      const queueItem = {
+        sessionId,
+        uri,
+        duration: recordingState.recordingTime,
+        markers: recordingState.markers,
+        timestamp: new Date().toISOString(),
+        status: 'pending_upload',
+      };
+
+      await AsyncStorage.setItem(`recording_${sessionId}`, JSON.stringify(queueItem));
+
+      // Add to processing queue (this would trigger background processing)
+      const queue = await AsyncStorage.getItem('recording_queue');
+      const queueData = queue ? JSON.parse(queue) : [];
+      queueData.push(sessionId);
+      await AsyncStorage.setItem('recording_queue', JSON.stringify(queueData));
+
+    } catch (error) {
+      console.error('Failed to queue recording:', error);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -328,52 +405,67 @@ export default function RecordingScreen() {
 
   const getStatusMessage = () => {
     if (recordingState.mode === 'cloud') {
-      return 'Cloud recorder active - this device is not capturing mic';
+      return '🔵 Recording in cloud';
     }
     if (recordingState.isRecording) {
-      return recordingState.isPaused ? 'Recording paused' : 'Recording locally (background enabled)';
+      return recordingState.isPaused 
+        ? '🟠 Recording paused' 
+        : '🟢 Recording locally (background enabled)';
     }
     return 'Tap the record button to start';
   };
 
+  const getStatusColor = () => {
+    if (recordingState.mode === 'cloud') return '#007AFF';
+    if (recordingState.isRecording) {
+      return recordingState.isPaused ? '#FF9500' : '#34C759';
+    }
+    return '#8E8E93';
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Record Meeting</Text>
-        <TouchableOpacity style={styles.cloudButton}>
-          <Ionicons name="cloud-outline" size={20} color="#FFFFFF" />
+      {/* Top Bar */}
+      <View style={styles.topBar}>
+        <View style={styles.logoContainer}>
+          <Ionicons name="mic-outline" size={20} color="#007AFF" />
+          <Text style={styles.logoText}>BotMR</Text>
+        </View>
+        <Text style={styles.screenTitle}>Record Meeting</Text>
+        <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings' as never)}>
+          <Ionicons name="settings-outline" size={20} color="#007AFF" />
         </TouchableOpacity>
       </View>
 
       {/* Status Banner */}
-      <View style={styles.statusBanner}>
+      <View style={[styles.statusBanner, { backgroundColor: getStatusColor() }]}>
         <Text style={styles.statusText}>{getStatusMessage()}</Text>
       </View>
 
-      {/* Timer */}
+      {/* Timer & Live Indicator */}
       <View style={styles.timerContainer}>
         <Text style={styles.timer}>{formatTime(recordingState.recordingTime)}</Text>
-        {recordingState.isRecording && (
-          <View style={styles.liveIndicator}>
-            <View style={styles.redDot} />
+        {recordingState.isRecording && !recordingState.isPaused && (
+          <View style={styles.liveContainer}>
+            <Animated.View style={[styles.liveDot, { opacity: glowAnim }]} />
             <Text style={styles.liveText}>LIVE</Text>
           </View>
         )}
       </View>
 
-      {/* Waveform Visualization */}
-      <View style={styles.waveformContainer}>
+      {/* Mic & Waveform */}
+      <View style={styles.centralContainer}>
         <Animated.View style={[styles.micContainer, { transform: [{ scale: pulseAnim }] }]}>
-          <Ionicons 
-            name="mic" 
-            size={80} 
-            color={recordingState.isRecording ? '#FF3B30' : '#8E8E93'} 
-          />
+          <View style={[styles.micGlow, recordingState.isRecording && styles.micGlowActive]}>
+            <Ionicons 
+              name="mic" 
+              size={60} 
+              color={recordingState.isRecording ? '#FF3B30' : '#8E8E93'} 
+            />
+          </View>
         </Animated.View>
         
+        {/* Waveform */}
         <View style={styles.waveform}>
           {waveformAnims.map((anim, index) => (
             <Animated.View
@@ -381,7 +473,8 @@ export default function RecordingScreen() {
               style={[
                 styles.waveformBar,
                 {
-                  height: Animated.multiply(anim, 60),
+                  height: Animated.multiply(anim, 50),
+                  backgroundColor: recordingState.isRecording ? '#FF3B30' : '#8E8E93',
                   opacity: recordingState.isRecording && !recordingState.isPaused ? anim : 0.3,
                 }
               ]}
@@ -390,62 +483,57 @@ export default function RecordingScreen() {
         </View>
       </View>
 
-      {/* Controls */}
-      <View style={styles.controlsContainer}>
-        {recordingState.isRecording && (
-          <>
-            <TouchableOpacity style={styles.controlButton} onPress={addMarker}>
-              <Ionicons name="flag-outline" size={24} color="#007AFF" />
-              <Text style={styles.controlButtonText}>Marker</Text>
-            </TouchableOpacity>
+      {/* Controls Row */}
+      <View style={styles.controlsRow}>
+        {/* Marker Button */}
+        <TouchableOpacity 
+          style={styles.controlButton} 
+          onPress={addMarker}
+          disabled={!recordingState.isRecording}
+        >
+          <View style={styles.controlButtonContainer}>
+            <Ionicons name="flag-outline" size={24} color={recordingState.isRecording ? '#007AFF' : '#8E8E93'} />
+            <Text style={[styles.controlButtonText, { color: recordingState.isRecording ? '#007AFF' : '#8E8E93' }]}>
+              Marker
+            </Text>
+            {recordingState.markers.length > 0 && (
+              <View style={styles.markerCounter}>
+                <Text style={styles.markerCounterText}>{recordingState.markers.length}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
 
-            <TouchableOpacity style={styles.controlButton} onPress={pauseRecording}>
-              <Ionicons 
-                name={recordingState.isPaused ? 'play-outline' : 'pause-outline'} 
-                size={24} 
-                color="#007AFF" 
-              />
-              <Text style={styles.controlButtonText}>
-                {recordingState.isPaused ? 'Resume' : 'Pause'}
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
+        {/* Pause/Resume Button */}
+        <TouchableOpacity 
+          style={styles.controlButton} 
+          onPress={pauseRecording}
+          disabled={!recordingState.isRecording}
+        >
+          <Ionicons 
+            name={recordingState.isPaused ? 'play' : 'pause'} 
+            size={28} 
+            color={recordingState.isRecording ? '#007AFF' : '#8E8E93'} 
+          />
+          <Text style={[styles.controlButtonText, { color: recordingState.isRecording ? '#007AFF' : '#8E8E93' }]}>
+            {recordingState.isPaused ? 'Resume' : 'Pause'}
+          </Text>
+        </TouchableOpacity>
 
-      {/* Main Action Button */}
-      <View style={styles.mainActionContainer}>
-        <TouchableOpacity
-          style={[
-            styles.mainActionButton,
-            { backgroundColor: recordingState.isRecording ? '#FF3B30' : '#007AFF' }
-          ]}
+        {/* Stop Button */}
+        <TouchableOpacity 
+          style={[styles.stopButton, recordingState.isRecording && styles.stopButtonActive]} 
           onPress={recordingState.isRecording ? stopRecording : startRecording}
         >
           <Ionicons 
-            name={recordingState.isRecording ? 'stop' : 'mic'} 
-            size={32} 
+            name={recordingState.isRecording ? 'stop' : 'play'} 
+            size={24} 
             color="#FFFFFF" 
           />
+          <Text style={styles.stopButtonText}>
+            {recordingState.isRecording ? 'Stop' : 'Start'}
+          </Text>
         </TouchableOpacity>
-        <Text style={styles.mainActionText}>
-          {recordingState.isRecording ? 'Stop Recording' : 'Start Recording'}
-        </Text>
-      </View>
-
-      {/* Settings */}
-      <View style={styles.settingsContainer}>
-        <View style={styles.settingRow}>
-          <Text style={styles.settingLabel}>Allow Cloud Fallback</Text>
-          <Switch
-            value={recordingState.allowFallback}
-            onValueChange={(value) => 
-              setRecordingState(prev => ({ ...prev, allowFallback: value }))
-            }
-            trackColor={{ false: '#767577', true: '#007AFF' }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -456,36 +544,43 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1C1C1E',
   },
-  header: {
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
   },
-  backButton: {
-    padding: 8,
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 18,
+  logoText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 6,
+  },
+  screenTitle: {
+    fontSize: 17,
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  cloudButton: {
-    padding: 8,
+  settingsButton: {
+    padding: 4,
   },
   statusBanner: {
-    backgroundColor: '#2C2C2E',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 8,
+    borderRadius: 20,
     marginHorizontal: 16,
-    marginBottom: 20,
+    marginBottom: 32,
   },
   statusText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#FFFFFF',
+    fontWeight: '500',
     textAlign: 'center',
   },
   timerContainer: {
@@ -493,96 +588,112 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   timer: {
-    fontSize: 48,
-    fontWeight: '200',
+    fontSize: 42,
+    fontWeight: '300',
     color: '#FFFFFF',
     marginBottom: 8,
   },
-  liveIndicator: {
+  liveContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  redDot: {
+  liveDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#FF3B30',
-    marginRight: 8,
+    marginRight: 6,
   },
   liveText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#FF3B30',
   },
-  waveformContainer: {
+  centralContainer: {
     alignItems: 'center',
     marginBottom: 60,
   },
   micContainer: {
-    marginBottom: 40,
+    marginBottom: 30,
+  },
+  micGlow: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2C2C2E',
+  },
+  micGlowActive: {
+    shadowColor: '#FF3B30',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   waveform: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 60,
+    height: 50,
   },
   waveformBar: {
-    width: 4,
-    backgroundColor: '#007AFF',
+    width: 3,
     marginHorizontal: 2,
     borderRadius: 2,
-    minHeight: 4,
+    minHeight: 6,
   },
-  controlsContainer: {
+  controlsRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
     marginBottom: 40,
   },
   controlButton: {
     alignItems: 'center',
-    marginHorizontal: 20,
+    padding: 8,
+  },
+  controlButtonContainer: {
+    alignItems: 'center',
+    position: 'relative',
   },
   controlButtonText: {
-    fontSize: 12,
-    color: '#007AFF',
+    fontSize: 11,
+    fontWeight: '500',
     marginTop: 4,
   },
-  mainActionContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  mainActionButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  markerCounter: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
-  mainActionText: {
-    fontSize: 16,
+  markerCounterText: {
+    fontSize: 10,
+    fontWeight: '600',
     color: '#FFFFFF',
-    marginTop: 12,
   },
-  settingsContainer: {
-    paddingHorizontal: 16,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  stopButton: {
+    backgroundColor: '#007AFF',
     paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    alignItems: 'center',
+    minWidth: 80,
   },
-  settingLabel: {
-    fontSize: 16,
+  stopButtonActive: {
+    backgroundColor: '#FF3B30',
+  },
+  stopButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: '#FFFFFF',
+    marginTop: 2,
   },
 });

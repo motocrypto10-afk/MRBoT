@@ -18,7 +18,8 @@ interface Meeting {
   date: string;
   summary: string;
   actionItemsCount: number;
-  status: string;
+  status: 'pending_upload' | 'processing' | 'completed' | 'pending';
+  isNew?: boolean;
 }
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -37,9 +38,10 @@ export default function SummaryFeedScreen() {
         _id: meeting.id,
         title: meeting.title,
         date: meeting.date,
-        summary: meeting.summary || 'Processing...',
+        summary: meeting.summary || getProcessingMessage(meeting.status),
         actionItemsCount: meeting.action_items?.length || 0,
-        status: meeting.status,
+        status: meeting.status || 'pending',
+        isNew: isRecentMeeting(meeting.created_at),
       })));
     } catch (error) {
       console.error('Error fetching meetings:', error);
@@ -48,6 +50,25 @@ export default function SummaryFeedScreen() {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const getProcessingMessage = (status: string) => {
+    switch (status) {
+      case 'pending_upload':
+        return 'Awaiting network...';
+      case 'processing':
+        return 'Transcribing & analyzing...';
+      case 'completed':
+        return '';
+      default:
+        return 'Processing...';
+    }
+  };
+
+  const isRecentMeeting = (createdAt: string) => {
+    const meetingTime = new Date(createdAt).getTime();
+    const now = new Date().getTime();
+    return (now - meetingTime) < 5 * 60 * 1000; // 5 minutes
   };
 
   useEffect(() => {
@@ -68,87 +89,119 @@ export default function SummaryFeedScreen() {
   };
 
   const startRecording = () => {
-    // Navigate to recording screen
-    (navigation as any).navigate('Record');
+    navigation.navigate('Record' as never);
   };
 
   const viewMeetingDetails = (meetingId: string) => {
-    // Navigate to MoM tab with the specific meeting
-    (navigation as any).navigate('MoM', { meetingId });
+    navigation.navigate('MoM' as never, { meetingId });
+  };
+
+  const renderStatusChip = (status: string, actionItemsCount: number) => {
+    const getStatusConfig = () => {
+      switch (status) {
+        case 'pending_upload':
+          return {
+            color: '#FF9500',
+            text: 'Awaiting network...',
+            icon: 'cloud-upload-outline',
+          };
+        case 'processing':
+          return {
+            color: '#007AFF',
+            text: 'Transcribing & analyzing...',
+            icon: 'sync-outline',
+          };
+        case 'completed':
+          return {
+            color: '#34C759',
+            text: `${actionItemsCount} Action Items • Summary Ready`,
+            icon: 'checkmark-circle',
+          };
+        default:
+          return {
+            color: '#8E8E93',
+            text: 'Processing...',
+            icon: 'time-outline',
+          };
+      }
+    };
+
+    const config = getStatusConfig();
+    
+    return (
+      <View style={[styles.statusChip, { backgroundColor: config.color }]}>
+        <Ionicons name={config.icon as any} size={12} color="#FFFFFF" />
+        <Text style={styles.statusChipText}>{config.text}</Text>
+      </View>
+    );
   };
 
   const renderMeetingCard = ({ item }: { item: Meeting }) => (
     <TouchableOpacity 
-      style={styles.meetingCard} 
+      style={[styles.meetingCard, item.isNew && styles.newMeetingCard]} 
       onPress={() => viewMeetingDetails(item._id)}
       activeOpacity={0.7}
     >
+      {item.isNew && (
+        <View style={styles.newBadge}>
+          <Text style={styles.newBadgeText}>NEW</Text>
+        </View>
+      )}
+
       <View style={styles.cardHeader}>
         <Text style={styles.meetingTitle}>{item.title}</Text>
         <Text style={styles.meetingDate}>{item.date}</Text>
       </View>
-      <Text style={styles.meetingSummary} numberOfLines={3}>
-        {item.summary}
-      </Text>
-      <View style={styles.cardFooter}>
-        <Text style={styles.actionItemsCount}>
-          {item.actionItemsCount} action items
-        </Text>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status}</Text>
-        </View>
-      </View>
+
+      {/* Status Chip */}
+      {renderStatusChip(item.status, item.actionItemsCount)}
       
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <TouchableOpacity 
-          style={styles.quickActionButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            (navigation as any).navigate('Tasks');
-          }}
-        >
-          <Ionicons name="checkmark-circle-outline" size={16} color="#007AFF" />
-          <Text style={styles.quickActionText}>Tasks</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.quickActionButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            (navigation as any).navigate('Messages');
-          }}
-        >
-          <Ionicons name="chatbubbles-outline" size={16} color="#007AFF" />
-          <Text style={styles.quickActionText}>Share</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.quickActionButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            viewMeetingDetails(item._id);
-          }}
-        >
-          <Ionicons name="document-text-outline" size={16} color="#007AFF" />
-          <Text style={styles.quickActionText}>Full MoM</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Summary or Processing Message */}
+      {item.status === 'completed' && item.summary && (
+        <Text style={styles.meetingSummary} numberOfLines={3}>
+          {item.summary}
+        </Text>
+      )}
+      
+      {/* Quick Actions - Only show for completed meetings */}
+      {item.status === 'completed' && (
+        <View style={styles.quickActions}>
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate('Tasks' as never);
+            }}
+          >
+            <Ionicons name="checkmark-circle-outline" size={16} color="#007AFF" />
+            <Text style={styles.quickActionText}>Tasks</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate('Messages' as never);
+            }}
+          >
+            <Ionicons name="chatbubbles-outline" size={16} color="#007AFF" />
+            <Text style={styles.quickActionText}>Share</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              viewMeetingDetails(item._id);
+            }}
+          >
+            <Ionicons name="document-text-outline" size={16} color="#007AFF" />
+            <Text style={styles.quickActionText}>Full MoM</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </TouchableOpacity>
   );
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return '#34C759';
-      case 'processing':
-        return '#FF9500';
-      case 'pending':
-        return '#007AFF';
-      default:
-        return '#8E8E93';
-    }
-  };
 
   if (loading) {
     return (
@@ -203,7 +256,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
-    paddingBottom: 20, // Normal padding since no floating button
+    paddingBottom: 20,
   },
   meetingCard: {
     backgroundColor: '#FFFFFF',
@@ -218,6 +271,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
+    position: 'relative',
+  },
+  newMeetingCard: {
+    borderWidth: 2,
+    borderColor: '#007AFF',
+  },
+  newBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  newBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -230,38 +302,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000',
     flex: 1,
+    marginRight: 40, // Space for NEW badge
   },
   meetingDate: {
     fontSize: 14,
     color: '#8E8E93',
+  },
+  statusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  statusChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 4,
   },
   meetingSummary: {
     fontSize: 15,
     color: '#48484A',
     lineHeight: 22,
     marginBottom: 16,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  actionItemsCount: {
-    fontSize: 13,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  statusText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    textTransform: 'capitalize',
   },
   quickActions: {
     flexDirection: 'row',
