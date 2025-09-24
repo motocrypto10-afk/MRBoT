@@ -139,7 +139,7 @@ async def create_meeting(meeting: MeetingCreate):
         
         # Insert into database
         result = await db.meetings.insert_one(meeting_obj.dict())
-        meeting_obj.id = str(result.inserted_id)
+        # Keep the original UUID, don't overwrite with MongoDB ObjectId
         
         # If audio data is provided, start processing
         if meeting.audio_data:
