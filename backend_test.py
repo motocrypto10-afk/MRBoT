@@ -309,10 +309,252 @@ class BotMRTester:
             self.log_test("Update Settings", False, f"Request error: {str(e)}")
             return False
     
+    def test_recording_start(self):
+        """API-001: Test recording start endpoint"""
+        try:
+            recording_data = {
+                "mode": "local",
+                "allow_fallback": True,
+                "metadata": {
+                    "deviceId": f"test-device-{uuid.uuid4()}",
+                    "userId": "test-user-001"
+                }
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/recordings/start",
+                json=recording_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                session_id = result.get("sessionId")
+                if session_id:
+                    self.recording_session_id = session_id
+                    self.log_test("Recording Start", True, f"Recording session started: {session_id}")
+                    return True
+                else:
+                    self.log_test("Recording Start", False, "No session ID returned", result)
+                    return False
+            else:
+                self.log_test("Recording Start", False, f"HTTP {response.status_code}", response.text)
+                return False
+        except Exception as e:
+            self.log_test("Recording Start", False, f"Request error: {str(e)}")
+            return False
+    
+    def test_recording_heartbeat(self):
+        """API-002: Test recording heartbeat endpoint"""
+        if not hasattr(self, 'recording_session_id') or not self.recording_session_id:
+            self.log_test("Recording Heartbeat", False, "No recording session ID available")
+            return False
+            
+        try:
+            heartbeat_data = {
+                "session_id": self.recording_session_id,
+                "device_id": f"test-device-{uuid.uuid4()}",
+                "ts": datetime.now().isoformat()
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/recordings/heartbeat",
+                json=heartbeat_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("ok"):
+                    self.log_test("Recording Heartbeat", True, f"Heartbeat sent successfully for session {self.recording_session_id}")
+                    return True
+                else:
+                    self.log_test("Recording Heartbeat", False, "Heartbeat not acknowledged", result)
+                    return False
+            else:
+                self.log_test("Recording Heartbeat", False, f"HTTP {response.status_code}", response.text)
+                return False
+        except Exception as e:
+            self.log_test("Recording Heartbeat", False, f"Request error: {str(e)}")
+            return False
+    
+    def test_recording_status(self):
+        """API-002: Test recording status endpoint"""
+        if not hasattr(self, 'recording_session_id') or not self.recording_session_id:
+            self.log_test("Recording Status", False, "No recording session ID available")
+            return False
+            
+        try:
+            response = self.session.get(f"{self.base_url}/recordings/{self.recording_session_id}/status")
+            
+            if response.status_code == 200:
+                status_data = response.json()
+                required_fields = ["sessionId", "status", "startedAt"]
+                if all(field in status_data for field in required_fields):
+                    self.log_test("Recording Status", True, f"Status retrieved: {status_data.get('status')}")
+                    return True
+                else:
+                    self.log_test("Recording Status", False, "Missing required fields in status", status_data)
+                    return False
+            else:
+                self.log_test("Recording Status", False, f"HTTP {response.status_code}", response.text)
+                return False
+        except Exception as e:
+            self.log_test("Recording Status", False, f"Request error: {str(e)}")
+            return False
+    
+    def test_recording_stop(self):
+        """API-001: Test recording stop endpoint"""
+        if not hasattr(self, 'recording_session_id') or not self.recording_session_id:
+            self.log_test("Recording Stop", False, "No recording session ID available")
+            return False
+            
+        try:
+            stop_data = {
+                "session_id": self.recording_session_id,
+                "final": True,
+                "stats": {
+                    "duration": 120,
+                    "chunks_uploaded": 5,
+                    "total_size": 1024000
+                }
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/recordings/stop",
+                json=stop_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                meeting_id = result.get("meetingId")
+                if meeting_id:
+                    self.log_test("Recording Stop", True, f"Recording stopped, meeting created: {meeting_id}")
+                    self.recording_meeting_id = meeting_id
+                    return True
+                else:
+                    self.log_test("Recording Stop", False, "No meeting ID returned", result)
+                    return False
+            else:
+                self.log_test("Recording Stop", False, f"HTTP {response.status_code}", response.text)
+                return False
+        except Exception as e:
+            self.log_test("Recording Stop", False, f"Request error: {str(e)}")
+            return False
+    
+    def test_complete_recording_workflow(self):
+        """QUE-001: Test complete recording workflow"""
+        try:
+            print("🔄 Testing Complete Recording Workflow...")
+            
+            # Step 1: Start recording
+            if not self.test_recording_start():
+                return False
+            
+            # Step 2: Send heartbeat
+            time.sleep(1)
+            if not self.test_recording_heartbeat():
+                return False
+            
+            # Step 3: Check status
+            if not self.test_recording_status():
+                return False
+            
+            # Step 4: Stop recording
+            if not self.test_recording_stop():
+                return False
+            
+            # Step 5: Verify meeting was created and can be retrieved
+            if hasattr(self, 'recording_meeting_id') and self.recording_meeting_id:
+                response = self.session.get(f"{self.base_url}/meetings/{self.recording_meeting_id}")
+                if response.status_code == 200:
+                    meeting_data = response.json()
+                    self.log_test("Complete Recording Workflow", True, 
+                                f"Full workflow completed: recording → meeting {self.recording_meeting_id}")
+                    return True
+                else:
+                    self.log_test("Complete Recording Workflow", False, 
+                                f"Meeting not found after recording: {self.recording_meeting_id}")
+                    return False
+            else:
+                self.log_test("Complete Recording Workflow", False, "No meeting ID from recording stop")
+                return False
+                
+        except Exception as e:
+            self.log_test("Complete Recording Workflow", False, f"Workflow error: {str(e)}")
+            return False
+    
+    def test_concurrent_recording_sessions(self):
+        """Performance Testing: Test concurrent recording sessions"""
+        try:
+            session_ids = []
+            concurrent_sessions = 3
+            
+            # Start multiple recording sessions
+            for i in range(concurrent_sessions):
+                recording_data = {
+                    "mode": "local",
+                    "allow_fallback": True,
+                    "metadata": {
+                        "deviceId": f"concurrent-device-{i}-{uuid.uuid4()}",
+                        "userId": f"concurrent-user-{i}"
+                    }
+                }
+                
+                response = self.session.post(
+                    f"{self.base_url}/recordings/start",
+                    json=recording_data,
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    session_id = result.get("sessionId")
+                    if session_id:
+                        session_ids.append(session_id)
+            
+            success_rate = len(session_ids) / concurrent_sessions
+            
+            if success_rate >= 0.8:  # 80% success rate acceptable
+                self.log_test("Concurrent Recording Sessions", True, 
+                            f"{len(session_ids)}/{concurrent_sessions} sessions created successfully")
+                
+                # Test heartbeats for all sessions
+                heartbeat_success = 0
+                for session_id in session_ids:
+                    heartbeat_data = {
+                        "session_id": session_id,
+                        "device_id": f"test-device-{uuid.uuid4()}",
+                        "ts": datetime.now().isoformat()
+                    }
+                    
+                    response = self.session.post(
+                        f"{self.base_url}/recordings/heartbeat",
+                        json=heartbeat_data,
+                        headers={"Content-Type": "application/json"}
+                    )
+                    
+                    if response.status_code == 200 and response.json().get("ok"):
+                        heartbeat_success += 1
+                
+                self.log_test("Concurrent Heartbeats", heartbeat_success == len(session_ids),
+                            f"{heartbeat_success}/{len(session_ids)} heartbeats successful")
+                
+                return True
+            else:
+                self.log_test("Concurrent Recording Sessions", False, 
+                            f"Low success rate: {success_rate:.1%}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Concurrent Recording Sessions", False, f"Request error: {str(e)}")
+            return False
+    
     def test_error_scenarios(self):
         """Test various error scenarios"""
         error_tests_passed = 0
-        total_error_tests = 3
+        total_error_tests = 6
         
         # Test 1: Get non-existent meeting
         try:
@@ -354,6 +596,63 @@ class BotMRTester:
                 self.log_test("Error Test - Invalid JSON", False, f"Expected 400/422, got {response.status_code}")
         except Exception as e:
             self.log_test("Error Test - Invalid JSON", False, f"Request error: {str(e)}")
+        
+        # Test 4: Invalid recording session heartbeat
+        try:
+            invalid_heartbeat = {
+                "session_id": "invalid-session-id",
+                "device_id": "test-device",
+                "ts": datetime.now().isoformat()
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/recordings/heartbeat",
+                json=invalid_heartbeat,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            # Should handle gracefully (might return 200 with ok: false or 404/500)
+            if response.status_code in [200, 404, 500]:
+                self.log_test("Error Test - Invalid Heartbeat", True, 
+                            f"Handled invalid session gracefully: HTTP {response.status_code}")
+                error_tests_passed += 1
+            else:
+                self.log_test("Error Test - Invalid Heartbeat", False, 
+                            f"Unexpected response: HTTP {response.status_code}")
+        except Exception as e:
+            self.log_test("Error Test - Invalid Heartbeat", False, f"Request error: {str(e)}")
+        
+        # Test 5: Invalid recording session status
+        try:
+            response = self.session.get(f"{self.base_url}/recordings/invalid-session/status")
+            if response.status_code == 404:
+                self.log_test("Error Test - Invalid Status", True, "Correctly returned 404 for invalid session")
+                error_tests_passed += 1
+            else:
+                self.log_test("Error Test - Invalid Status", False, f"Expected 404, got {response.status_code}")
+        except Exception as e:
+            self.log_test("Error Test - Invalid Status", False, f"Request error: {str(e)}")
+        
+        # Test 6: Invalid recording session stop
+        try:
+            invalid_stop = {
+                "session_id": "invalid-session-id",
+                "final": True
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/recordings/stop",
+                json=invalid_stop,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 404:
+                self.log_test("Error Test - Invalid Stop", True, "Correctly returned 404 for invalid session")
+                error_tests_passed += 1
+            else:
+                self.log_test("Error Test - Invalid Stop", False, f"Expected 404, got {response.status_code}")
+        except Exception as e:
+            self.log_test("Error Test - Invalid Stop", False, f"Request error: {str(e)}")
         
         return error_tests_passed == total_error_tests
     
