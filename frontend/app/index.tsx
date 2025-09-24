@@ -6,12 +6,12 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
-import SummaryFeedScreen from './screens/SummaryFeedScreen';
-import TasksScreen from './screens/TasksScreen';
-import MomScreen from './screens/MomScreen';
-import MessagesScreen from './screens/MessagesScreen';
-import RecordingScreen from './screens/RecordingScreen';
-import SettingsScreen from './screens/SettingsScreen';
+// Import screens
+const SummaryFeedScreen = require('./screens/SummaryFeedScreen').default;
+const TasksScreen = require('./screens/TasksScreen').default;
+const MomScreen = require('./screens/MomScreen').default;
+const MessagesScreen = require('./screens/MessagesScreen').default;
+const SettingsScreen = require('./screens/SettingsScreen').default;
 
 const Tab = createBottomTabNavigator();
 
