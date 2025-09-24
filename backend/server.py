@@ -405,6 +405,126 @@ async def get_settings():
         logger.error(f"Error fetching settings: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch settings")
 
+@api_router.post("/recordings/start")
+async def start_recording(recording: RecordingStart):
+    """Start a new recording session"""
+    try:
+        session = RecordingSession(
+            mode=recording.mode,
+            device_id=recording.metadata.get('deviceId', 'unknown'),
+            user_id=recording.metadata.get('userId'),
+            meeting_id=recording.meeting_id,
+            allow_fallback=recording.allow_fallback,
+            metadata=recording.metadata or {},
+            status="active"
+        )
+        
+        # Insert into database
+        result = await db.recording_sessions.insert_one(session.dict())
+        
+        return {
+            "sessionId": session.session_id,
+            "uploadUrls": [],  # TODO: Add upload URLs for chunked upload
+            "status": "active"
+        }
+    except Exception as e:
+        logger.error(f"Error starting recording: {e}")
+        raise HTTPException(status_code=500, detail="Failed to start recording")
+
+@api_router.post("/recordings/heartbeat")
+async def recording_heartbeat(heartbeat: RecordingHeartbeat):
+    """Update recording session heartbeat"""
+    try:
+        await db.recording_sessions.update_one(
+            {"session_id": heartbeat.session_id},
+            {
+                "$set": {
+                    "last_heartbeat": datetime.utcnow(),
+                    "status": "active"
+                }
+            }
+        )
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Error updating heartbeat: {e}")
+        raise HTTPException(status_code=500, detail="Heartbeat update failed")
+
+@api_router.post("/recordings/stop")
+async def stop_recording(stop_data: RecordingStop):
+    """Stop recording session and trigger processing"""
+    try:
+        session = await db.recording_sessions.find_one({"session_id": stop_data.session_id})
+        if not session:
+            raise HTTPException(status_code=404, detail="Recording session not found")
+        
+        # Update session to stopped
+        await db.recording_sessions.update_one(
+            {"session_id": stop_data.session_id},
+            {
+                "$set": {
+                    "status": "stopped",
+                    "ended_at": datetime.utcnow(),
+                    "final_stats": stop_data.stats or {}
+                }
+            }
+        )
+        
+        # Create meeting from recording if none exists
+        if not session.get('meeting_id'):
+            meeting_title = f"Meeting {session.get('started_at', datetime.utcnow()).strftime('%m/%d/%Y, %H:%M:%S')}"
+            meeting = Meeting(
+                title=meeting_title,
+                date=session.get('started_at', datetime.utcnow()).strftime('%Y-%m-%d %H:%M'),
+                status="processing"
+            )
+            
+            meeting_result = await db.meetings.insert_one(meeting.dict())
+            meeting_id = meeting.id
+            
+            # Link recording to meeting
+            await db.recording_sessions.update_one(
+                {"session_id": stop_data.session_id},
+                {"$set": {"meeting_id": meeting_id}}
+            )
+        else:
+            meeting_id = session.get('meeting_id')
+        
+        # TODO: Trigger transcription and processing
+        # For now, mark as ready for processing
+        return {
+            "message": "Recording stopped successfully",
+            "meetingId": meeting_id,
+            "sessionId": stop_data.session_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error stopping recording: {e}")
+        raise HTTPException(status_code=500, detail="Failed to stop recording")
+
+@api_router.get("/recordings/{session_id}/status")
+async def get_recording_status(session_id: str):
+    """Get recording session status"""
+    try:
+        session = await db.recording_sessions.find_one({"session_id": session_id})
+        if not session:
+            raise HTTPException(status_code=404, detail="Recording session not found")
+        
+        return {
+            "sessionId": session_id,
+            "status": session.get('status'),
+            "uploadedChunks": len(session.get('audio_files', [])),
+            "transcriptState": "pending",  # TODO: Add actual transcript status
+            "startedAt": session.get('started_at'),
+            "lastHeartbeat": session.get('last_heartbeat')
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting recording status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get recording status")
+
 @api_router.post("/settings")
 async def update_settings(settings: UserSettings):
     """Update user settings"""
