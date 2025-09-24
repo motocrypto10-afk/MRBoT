@@ -15,21 +15,6 @@ import RecordingScreen from './screens/RecordingScreen';
 
 const Tab = createBottomTabNavigator();
 
-// Custom Record Button Component
-function CustomRecordButton({ onPress, isRecording }: { onPress: () => void; isRecording?: boolean }) {
-  return (
-    <TouchableOpacity
-      style={styles.recordButtonContainer}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
-      <View style={[styles.recordButton, isRecording && styles.recordButtonActive]}>
-        <Ionicons name="mic" size={20} color="#FFFFFF" />
-      </View>
-    </TouchableOpacity>
-  );
-}
-
 export default function Index() {
   return (
     <SafeAreaProvider>
@@ -43,6 +28,9 @@ export default function Index() {
               iconName = focused ? 'home' : 'home-outline';
             } else if (route.name === 'Tasks') {
               iconName = focused ? 'checkmark-circle' : 'checkmark-circle-outline';
+            } else if (route.name === 'Record') {
+              // Custom Record Button - return null to handle separately
+              return null;
             } else if (route.name === 'MoM') {
               iconName = focused ? 'document-text' : 'document-text-outline';
             } else if (route.name === 'Messages') {
@@ -51,7 +39,7 @@ export default function Index() {
               iconName = 'ellipse-outline';
             }
 
-            return <Ionicons name={iconName} size={22} color={color} />;
+            return <Ionicons name={iconName} size={24} color={color} />;
           },
           tabBarActiveTintColor: '#007AFF',
           tabBarInactiveTintColor: '#8E8E93',
@@ -59,25 +47,26 @@ export default function Index() {
             backgroundColor: '#FFFFFF',
             borderTopWidth: 0.5,
             borderTopColor: '#E5E5EA',
-            paddingBottom: Platform.OS === 'ios' ? 20 : 5,
-            paddingTop: 5,
-            height: Platform.OS === 'ios' ? 80 : 60,
+            paddingBottom: Platform.OS === 'ios' ? 25 : 8,
+            paddingTop: 8,
+            height: Platform.OS === 'ios' ? 85 : 65,
             shadowColor: '#000',
             shadowOffset: {
               width: 0,
-              height: -1,
+              height: -2,
             },
-            shadowOpacity: 0.05,
-            shadowRadius: 4,
-            elevation: 5,
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            elevation: 10,
           },
           tabBarItemStyle: {
-            paddingVertical: 2,
+            flex: 1,
+            paddingVertical: 4,
           },
           tabBarLabelStyle: {
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: '500',
-            marginTop: 1,
+            marginTop: 2,
           },
           headerStyle: {
             backgroundColor: '#FFFFFF',
@@ -100,6 +89,7 @@ export default function Index() {
           headerTitleAlign: 'center',
         })}
       >
+        {/* Tab 1: Summary */}
         <Tab.Screen 
           name="Summary" 
           component={SummaryFeedScreen} 
@@ -111,11 +101,13 @@ export default function Index() {
                 style={styles.headerButton}
                 onPress={() => navigation.navigate('Settings')}
               >
-                <Ionicons name="settings-outline" size={20} color="#007AFF" />
+                <Ionicons name="settings-outline" size={22} color="#007AFF" />
               </TouchableOpacity>
             ),
           })}
         />
+
+        {/* Tab 2: Tasks */}
         <Tab.Screen 
           name="Tasks" 
           component={TasksScreen} 
@@ -127,28 +119,38 @@ export default function Index() {
                 style={styles.headerButton}
                 onPress={() => navigation.navigate('Settings')}
               >
-                <Ionicons name="settings-outline" size={20} color="#007AFF" />
+                <Ionicons name="settings-outline" size={22} color="#007AFF" />
               </TouchableOpacity>
             ),
           })}
         />
         
-        {/* Central Record Button */}
+        {/* Tab 3: CENTRAL RECORD BUTTON */}
         <Tab.Screen
           name="Record"
           component={RecordingScreen}
           options={({ navigation }) => ({
             title: 'Record',
-            tabBarLabel: 'Record',
-            headerShown: false, // Recording screen has its own header
-            tabBarButton: (props) => (
-              <CustomRecordButton
-                onPress={() => navigation.navigate('Record')}
-              />
+            tabBarLabel: '', // No label for center button
+            headerShown: false, // Recording screen has custom header
+            tabBarButton: () => (
+              <View style={styles.centerTabContainer}>
+                <TouchableOpacity
+                  style={styles.recordButton}
+                  onPress={() => navigation.navigate('Record')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="mic" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+                <View style={styles.recordLabel}>
+                  {/* Optional: Add "Record" text below */}
+                </View>
+              </View>
             ),
           })}
         />
         
+        {/* Tab 4: MoM */}
         <Tab.Screen 
           name="MoM" 
           component={MomScreen} 
@@ -160,11 +162,13 @@ export default function Index() {
                 style={styles.headerButton}
                 onPress={() => navigation.navigate('Settings')}
               >
-                <Ionicons name="settings-outline" size={20} color="#007AFF" />
+                <Ionicons name="settings-outline" size={22} color="#007AFF" />
               </TouchableOpacity>
             ),
           })}
         />
+
+        {/* Tab 5: Messages */}
         <Tab.Screen 
           name="Messages" 
           component={MessagesScreen} 
@@ -176,19 +180,19 @@ export default function Index() {
                 style={styles.headerButton}
                 onPress={() => navigation.navigate('Settings')}
               >
-                <Ionicons name="settings-outline" size={20} color="#007AFF" />
+                <Ionicons name="settings-outline" size={22} color="#007AFF" />
               </TouchableOpacity>
             ),
           })}
         />
 
-        {/* Settings screen - Hidden from tab bar but accessible via header */}
+        {/* Settings Screen - Hidden from tab bar */}
         <Tab.Screen
           name="Settings"
           component={SettingsScreen}
           options={{
             title: 'Settings',
-            tabBarButton: () => null, // Hide from tab bar
+            tabBarButton: () => null, // Completely hidden from tab bar
           }}
         />
       </Tab.Navigator>
@@ -197,36 +201,37 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  recordButtonContainer: {
+  centerTabContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 5,
+    justifyContent: 'center',
+    paddingTop: 4,
   },
   recordButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#007AFF',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-    borderWidth: 2,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 3,
     borderColor: '#FFFFFF',
+    marginTop: -8, // Slightly elevated above tab bar
   },
-  recordButtonActive: {
-    backgroundColor: '#FF3B30',
-    shadowColor: '#FF3B30',
+  recordLabel: {
+    marginTop: 2,
+    height: 14, // Reserve space for label consistency
   },
   headerButton: {
     marginRight: 16,
-    padding: 4,
+    padding: 6,
   },
 });
