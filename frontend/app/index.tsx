@@ -24,7 +24,7 @@ function CustomRecordButton({ onPress }: { onPress: () => void }) {
       activeOpacity={0.8}
     >
       <View style={styles.recordButton}>
-        <Ionicons name="mic" size={24} color="#FFFFFF" />
+        <Ionicons name="mic" size={20} color="#FFFFFF" />
       </View>
     </TouchableOpacity>
   );
@@ -53,7 +53,7 @@ export default function Index() {
               iconName = 'ellipse-outline';
             }
 
-            return <Ionicons name={iconName} size={size} color={color} />;
+            return <Ionicons name={iconName} size={22} color={color} />;
           },
           tabBarActiveTintColor: '#007AFF',
           tabBarInactiveTintColor: '#8E8E93',
@@ -61,25 +61,25 @@ export default function Index() {
             backgroundColor: '#FFFFFF',
             borderTopWidth: 0.5,
             borderTopColor: '#E5E5EA',
-            paddingBottom: Platform.OS === 'ios' ? 25 : 8,
-            paddingTop: 8,
-            height: Platform.OS === 'ios' ? 85 : 65,
+            paddingBottom: Platform.OS === 'ios' ? 20 : 5,
+            paddingTop: 5,
+            height: Platform.OS === 'ios' ? 80 : 60,
             shadowColor: '#000',
             shadowOffset: {
               width: 0,
-              height: -2,
+              height: -1,
             },
-            shadowOpacity: 0.1,
-            shadowRadius: 8,
-            elevation: 10,
+            shadowOpacity: 0.05,
+            shadowRadius: 4,
+            elevation: 5,
           },
           tabBarItemStyle: {
-            paddingVertical: 4,
+            paddingVertical: 2,
           },
           tabBarLabelStyle: {
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: '500',
-            marginTop: 2,
+            marginTop: 1,
           },
           headerStyle: {
             backgroundColor: '#FFFFFF',
@@ -126,7 +126,6 @@ export default function Index() {
           options={({ navigation }) => ({
             title: 'Record',
             tabBarLabel: 'Record',
-            tabBarIcon: () => null,
             tabBarButton: (props) => (
               <CustomRecordButton
                 onPress={() => navigation.navigate('Record')}
@@ -166,27 +165,27 @@ export default function Index() {
 
 const styles = StyleSheet.create({
   recordButtonContainer: {
-    top: -15, // Elevate above the tab bar
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    flex: 1,
+    paddingTop: 5,
   },
   recordButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#007AFF',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    borderWidth: 3,
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
   },
 });
