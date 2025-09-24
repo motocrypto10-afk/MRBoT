@@ -33,7 +33,14 @@ export default function SummaryFeedScreen() {
     try {
       const response = await fetch(`${BACKEND_URL}/api/meetings`);
       const data = await response.json();
-      setMeetings(data);
+      setMeetings(data.map((meeting: any) => ({
+        _id: meeting.id,
+        title: meeting.title,
+        date: meeting.date,
+        summary: meeting.summary || 'Processing...',
+        actionItemsCount: meeting.action_items?.length || 0,
+        status: meeting.status,
+      })));
     } catch (error) {
       console.error('Error fetching meetings:', error);
       Alert.alert('Error', 'Failed to load meetings');
@@ -47,18 +54,35 @@ export default function SummaryFeedScreen() {
     fetchMeetings();
   }, []);
 
+  // Focus event listener to refresh when tab is focused
+  React.useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchMeetings();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchMeetings();
   };
 
   const startRecording = () => {
-    // Navigate to RecordingScreen (we'll add this navigation later)
-    Alert.alert('Recording', 'Navigate to recording screen');
+    // Navigate to recording screen
+    (navigation as any).navigate('Record');
+  };
+
+  const viewMeetingDetails = (meetingId: string) => {
+    // Navigate to MoM tab with the specific meeting
+    (navigation as any).navigate('MoM', { meetingId });
   };
 
   const renderMeetingCard = ({ item }: { item: Meeting }) => (
-    <TouchableOpacity style={styles.meetingCard} onPress={() => {}}>
+    <TouchableOpacity 
+      style={styles.meetingCard} 
+      onPress={() => viewMeetingDetails(item._id)}
+      activeOpacity={0.7}
+    >
       <View style={styles.cardHeader}>
         <Text style={styles.meetingTitle}>{item.title}</Text>
         <Text style={styles.meetingDate}>{item.date}</Text>
@@ -73,6 +97,42 @@ export default function SummaryFeedScreen() {
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>{item.status}</Text>
         </View>
+      </View>
+      
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity 
+          style={styles.quickActionButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            (navigation as any).navigate('Tasks');
+          }}
+        >
+          <Ionicons name="checkmark-circle-outline" size={16} color="#007AFF" />
+          <Text style={styles.quickActionText}>Tasks</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.quickActionButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            (navigation as any).navigate('Messages');
+          }}
+        >
+          <Ionicons name="chatbubbles-outline" size={16} color="#007AFF" />
+          <Text style={styles.quickActionText}>Share</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.quickActionButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            viewMeetingDetails(item._id);
+          }}
+        >
+          <Ionicons name="document-text-outline" size={16} color="#007AFF" />
+          <Text style={styles.quickActionText}>Full MoM</Text>
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -113,17 +173,22 @@ export default function SummaryFeedScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="mic-outline" size={64} color="#C7C7CC" />
-            <Text style={styles.emptyTitle}>No meetings yet</Text>
+            <Text style={styles.emptyTitle}>Welcome to BotMR</Text>
             <Text style={styles.emptySubtitle}>
-              Start your first recording to see summaries here
+              Record meetings, get AI-powered summaries, tasks, and insights
             </Text>
+            <TouchableOpacity style={styles.getStartedButton} onPress={startRecording}>
+              <Text style={styles.getStartedText}>Start Recording</Text>
+            </TouchableOpacity>
           </View>
         }
       />
 
-      {/* Floating Record Button */}
+      {/* Floating Record Button - Central FAB */}
       <TouchableOpacity style={styles.floatingButton} onPress={startRecording}>
-        <Ionicons name="mic" size={28} color="#FFFFFF" />
+        <View style={styles.micButtonInner}>
+          <Ionicons name="mic" size={28} color="#FFFFFF" />
+        </View>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -145,27 +210,27 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 120, // Extra padding for FAB
   },
   meetingCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   meetingTitle: {
     fontSize: 18,
@@ -178,30 +243,51 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
   },
   meetingSummary: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#48484A',
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 22,
+    marginBottom: 16,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
   actionItemsCount: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#007AFF',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
   statusText: {
     fontSize: 12,
     color: '#FFFFFF',
     fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 12,
+    borderTopWidth: 0.5,
+    borderTopColor: '#E5E5EA',
+  },
+  quickActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  quickActionText: {
+    fontSize: 13,
+    color: '#007AFF',
+    fontWeight: '500',
+    marginLeft: 6,
   },
   emptyContainer: {
     flex: 1,
@@ -210,35 +296,58 @@ const styles = StyleSheet.create({
     paddingTop: 100,
   },
   emptyTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#48484A',
-    marginTop: 16,
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000',
+    marginTop: 20,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 16,
     color: '#8E8E93',
     textAlign: 'center',
+    paddingHorizontal: 40,
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  getStartedButton: {
+    backgroundColor: '#007AFF',
     paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 25,
+  },
+  getStartedText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   floatingButton: {
     position: 'absolute',
-    bottom: 30,
-    right: 30,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    bottom: 90, // Position above tab bar
+    alignSelf: 'center',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#007AFF',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 6,
     },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  micButtonInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
   },
 });
