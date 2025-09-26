@@ -5,9 +5,9 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from ...models.meeting import Meeting, MeetingCreate, MeetingUpdate
-from ...core.errors import NotFoundError, StorageError
-from ...core.logging import get_logger
+from models.meeting import Meeting, MeetingCreate, MeetingUpdate
+from core.errors import NotFoundError, StorageError
+from core.logging import get_logger
 
 logger = get_logger(__name__)
 

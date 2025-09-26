@@ -4,10 +4,10 @@ Meeting business logic service
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-from ...models.meeting import Meeting, MeetingCreate, MeetingUpdate
-from ...core.errors import NotFoundError, ValidationError, ProcessingError
-from ...core.logging import get_logger
-from ...core.queue import get_queue
+from models.meeting import Meeting, MeetingCreate, MeetingUpdate
+from core.errors import NotFoundError, ValidationError, ProcessingError
+from core.logging import get_logger
+from core.queue import get_queue
 from .repo import MeetingRepository
 
 logger = get_logger(__name__)

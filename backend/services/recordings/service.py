@@ -4,10 +4,10 @@ Recording session business logic service
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 
-from ...models.recording import RecordingSession, RecordingStart, RecordingHeartbeat, RecordingStop
-from ...core.errors import NotFoundError, ValidationError, ConflictError, ProcessingError
-from ...core.logging import get_logger
-from ...core.security import get_security_manager
+from models.recording import RecordingSession, RecordingStart, RecordingHeartbeat, RecordingStop
+from core.errors import NotFoundError, ValidationError, ConflictError, ProcessingError
+from core.logging import get_logger
+from core.security import get_security_manager
 from .repo import RecordingRepository
 
 logger = get_logger(__name__)
@@ -133,9 +133,9 @@ class RecordingService:
             # If no meeting linked and should create one
             if not meeting_id and stop_data.create_meeting:
                 # Import here to avoid circular dependency
-                from ..meetings.service import MeetingService
-                from ..meetings.repo import MeetingRepository
-                from ...core.db import get_database
+                from services.meetings.service import MeetingService
+                from services.meetings.repo import MeetingRepository
+                from core.db import get_database
                 
                 db = await get_database()
                 meeting_repo = MeetingRepository(db)
