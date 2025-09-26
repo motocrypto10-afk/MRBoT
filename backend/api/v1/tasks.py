@@ -4,11 +4,11 @@ Task API endpoints
 from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import List
 
-from ...models.task import Task, TaskCreate, TaskUpdate
-from ...models.common import BaseResponse
-from ...core.db import get_database
-from ...core.errors import map_exception_to_http
-from ...core.logging import get_logger
+from models.task import Task, TaskCreate, TaskUpdate
+from models.common import BaseResponse
+from core.db import get_database
+from core.errors import map_exception_to_http
+from core.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)

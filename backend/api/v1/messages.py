@@ -4,11 +4,11 @@ Message API endpoints
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 
-from ...models.message import Message, MessageCreate
-from ...models.common import BaseResponse
-from ...core.db import get_database
-from ...core.errors import map_exception_to_http
-from ...core.logging import get_logger
+from models.message import Message, MessageCreate
+from models.common import BaseResponse
+from core.db import get_database
+from core.errors import map_exception_to_http
+from core.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)

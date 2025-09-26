@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends
 from datetime import datetime
 from typing import Dict, Any
 
-from ...models.common import HealthCheck, BaseResponse
-from ...core.config import get_settings
-from ...core.db import get_database
-from ...core.queue import get_queue
-from ...core.logging import get_logger
+from models.common import HealthCheck, BaseResponse
+from core.config import get_settings
+from core.db import get_database
+from core.queue import get_queue
+from core.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)

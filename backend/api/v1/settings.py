@@ -4,11 +4,11 @@ Settings API endpoints
 from fastapi import APIRouter, Depends
 from typing import Dict, Any
 
-from ...models.settings import UserSettings, UserSettingsUpdate
-from ...models.common import BaseResponse
-from ...core.db import get_database
-from ...core.errors import map_exception_to_http
-from ...core.logging import get_logger
+from models.settings import UserSettings, UserSettingsUpdate
+from models.common import BaseResponse
+from core.db import get_database
+from core.errors import map_exception_to_http
+from core.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)

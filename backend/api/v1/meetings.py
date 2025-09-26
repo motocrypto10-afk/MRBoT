@@ -4,12 +4,12 @@ Meeting API endpoints
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Dict, Any
 
-from ...models.meeting import Meeting, MeetingCreate, MeetingUpdate
-from ...models.common import BaseResponse
-from ...services.meetings import MeetingService, MeetingRepository
-from ...core.db import get_database
-from ...core.errors import map_exception_to_http
-from ...core.logging import get_logger
+from models.meeting import Meeting, MeetingCreate, MeetingUpdate
+from models.common import BaseResponse
+from services.meetings import MeetingService, MeetingRepository
+from core.db import get_database
+from core.errors import map_exception_to_http
+from core.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
