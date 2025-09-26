@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 
 from ...models.recording import RecordingSession, RecordingStart, RecordingHeartbeat, RecordingStop
-from ...core.errors import NotFoundError, ValidationError, ConflictError
+from ...core.errors import NotFoundError, ValidationError, ConflictError, ProcessingError
 from ...core.logging import get_logger
 from ...core.security import get_security_manager
 from .repo import RecordingRepository
