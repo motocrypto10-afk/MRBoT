@@ -12,7 +12,7 @@ from datetime import datetime
 import uuid
 
 # Configuration
-BASE_URL = "https://voicenotes-25.preview.emergentagent.com/api"
+BASE_URL = "https://meeting-brain.preview.emergentagent.com/api"
 TIMEOUT = 30
 
 class BotMRTester:
