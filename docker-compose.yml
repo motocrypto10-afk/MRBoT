@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: botmr_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: emergent
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d
+    networks:
+      - botmr_network
+
+  # Redis for Job Queue
+  redis:
+    image: redis:7.2-alpine
+    container_name: botmr_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - botmr_network
+
+  # BotMR Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: botmr_backend
+    restart: unless-stopped
+    environment:
+      - MONGO_URL=mongodb://admin:password@mongodb:27017/emergent?authSource=admin
+      - DB_NAME=emergent
+      - REDIS_URL=redis://redis:6379/0
+      - EMERGENT_LLM_KEY=${EMERGENT_LLM_KEY}
+      - DEBUG=false
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+    ports:
+      - "8001:8001"
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    networks:
+      - botmr_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: botmr_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - backend
+    networks:
+      - botmr_network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  botmr_network:
+    driver: bridge
