@@ -1,7 +1,7 @@
 """
 Task API endpoints
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import List
 
 from ...models.task import Task, TaskCreate, TaskUpdate
