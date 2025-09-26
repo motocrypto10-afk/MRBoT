@@ -4,12 +4,12 @@ Recording session API endpoints
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any
 
-from ...models.recording import RecordingStart, RecordingHeartbeat, RecordingStop
-from ...models.common import BaseResponse
-from ...services.recordings import RecordingService, RecordingRepository
-from ...core.db import get_database
-from ...core.errors import map_exception_to_http
-from ...core.logging import get_logger
+from models.recording import RecordingStart, RecordingHeartbeat, RecordingStop
+from models.common import BaseResponse
+from services.recordings import RecordingService, RecordingRepository
+from core.db import get_database
+from core.errors import map_exception_to_http
+from core.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
